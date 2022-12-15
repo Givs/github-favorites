@@ -1,24 +1,65 @@
+export class GithubUser {
+    static search(username) {
+        const endpoint = `https://api.github.com/users/${username}`
+
+        return fetch(endpoint)
+            .then(data => data.json())
+            .then(({ login, name, public_repos, followers }) => ({
+                login,
+                name,
+                public_repos,
+                followers
+            }))
+    }
+}
+
 export class Favorites {
     constructor(root) {
         this.root = document.querySelector(root)
         this.load()
     }
 
-    load() {
-        this.datas = [
-            {
-                login: 'Givs',
-                name: 'Givaldo Neto',
-                public_repos: '25',
-                followers: '120'
-            },
-            {
-                login: 'diego3g',
-                name: 'Diego Neto',
-                public_repos: '25',
-                followers: '120'
+    async add(username) {
+        try {
+            const user = await GithubUser.search(username)
+
+            if (!user.login) {
+                throw new Error('Usuário não encontrado!')
             }
-        ]
+
+            this.datas.forEach(userFav => {
+                if (userFav.name === user.name){
+                    throw new Error('Usuário já adicionado!')
+                }
+
+            })
+
+            this.datas = [user, ...this.datas]
+            
+            this.update()
+            this.save()
+        } catch (error) {
+            alert(error.message)
+        }
+    }
+
+    load() {
+        this.datas = JSON.parse(localStorage.getItem('@github-favorites:')) || []
+
+        console.log(this.datas);
+    }
+
+    save() {
+        localStorage.setItem('@github-favorites:', JSON.stringify(this.datas))
+    }
+
+
+    delete(user){
+        const filteredData = this.datas.filter(data => data.login != user.login)
+        
+        this.datas = filteredData
+        this.update()
+        this.save()
     }
 }
 
@@ -29,6 +70,17 @@ export class FavoritesView extends Favorites {
 
     
         this.update()
+        this.onAdd()
+    }
+
+    onAdd() {
+        const addButton = this.root.querySelector('.search button')
+        addButton.onclick = () => {
+            const { value } = this.root.querySelector('.search input')
+
+            this.add(value)
+            value = ''
+        }
     }
 
     update() {
@@ -44,6 +96,13 @@ export class FavoritesView extends Favorites {
             row.querySelector('.repos').textContent = user.public_repos
             row.querySelector('.followers').textContent = user.followers
 
+            row.querySelector('.remove').onclick = () => {
+                const isOk = confirm('Tem certeza que deseja deletar esse usuário?')
+                if(isOk){
+                    this.delete(user)
+                }
+            }
+            
             this.tbody.append(row)
         })
     }
